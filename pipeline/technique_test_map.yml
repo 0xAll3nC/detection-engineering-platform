@@ -1,0 +1,29 @@
+# Maps each detection rule's PRIMARY MITRE ATT&CK technique to specific
+# numbered Atomic Red Team tests to run against the victim VM.
+#
+# Test numbers come from each technique's atomics/<T-ID>/T-ID.yaml in the
+# Invoke-AtomicRedTeam content repo (https://github.com/redcanaryco/atomic-red-team).
+# VERIFY these against your local atomics checkout before running --
+# the library's test numbering and content changes over time, and some
+# numbered tests are more destructive/disruptive than others. Read the
+# test description first.
+
+T1003.001:
+  test_numbers: [1]
+  note: "LSASS access techniques - confirm which numbered test uses comsvcs.dll MiniDump specifically, since T1003.001 covers several dumping methods"
+
+T1547.001:
+  test_numbers: [1]
+  note: "Registry Run key persistence via reg.exe add"
+
+T1053.005:
+  test_numbers: [1]
+  note: "Scheduled task creation via schtasks.exe /create"
+
+T1059.001:
+  test_numbers: [1]
+  note: "Base64-encoded PowerShell command execution"
+
+T1087:
+  test_numbers: [1]
+  note: "Local account/group discovery (whoami, net user/group)"

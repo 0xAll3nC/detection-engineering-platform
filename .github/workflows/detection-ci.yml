@@ -1,0 +1,66 @@
+name: Detection CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-detections:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint Sigma rule YAML
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          import yaml
+
+          required_fields = {"title", "id", "status", "logsource", "detection", "level", "tags"}
+          errors = []
+
+          for path in sorted(Path("rules").rglob("*.yml")):
+              rule = yaml.safe_load(path.read_text())
+              missing = required_fields - rule.keys()
+              if missing:
+                  errors.append(f"{path}: missing required fields {missing}")
+              if "condition" not in rule.get("detection", {}):
+                  errors.append(f"{path}: detection block has no condition")
+              if not any(t.startswith("attack.t") for t in rule.get("tags", [])):
+                  errors.append(f"{path}: no attack.tNNNN MITRE ATT&CK tag")
+
+          if errors:
+              print("Sigma lint FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          print(f"Sigma lint passed for all rules.")
+          PY
+
+      - name: Run detection logic unit tests
+        run: pytest tests/ -v
+
+      - name: Compile rules to Wazuh/OpenSearch queries (detection-as-code deploy check)
+        run: python pipeline/compile_rules.py
+
+      - name: Run simulated purple team pass (no live infra required)
+        run: python pipeline/purple_team_runner.py --simulate --out pipeline/results
+
+      - name: Upload ATT&CK Navigator coverage heatmap
+        uses: actions/upload-artifact@v4
+        with:
+          name: attck-coverage-heatmap
+          path: pipeline/results/navigator_layer.json

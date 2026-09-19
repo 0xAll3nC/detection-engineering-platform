@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# generated artifacts - regenerate with compile_rules.py / purple_team_runner.py
+pipeline/compiled/
+pipeline/results/
+
+# local secrets / lab connection details - never commit these
+.env

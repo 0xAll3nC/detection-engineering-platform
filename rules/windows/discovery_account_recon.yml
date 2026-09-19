@@ -1,0 +1,39 @@
+title: Local Account and Group Reconnaissance
+id: 0f9190b7-e73f-44f9-a131-852c6555c2b5
+status: experimental
+description: |
+    Detects common post-compromise discovery commands (whoami, net user,
+    net group, net localgroup administrators) used by attackers to
+    enumerate the current user's privileges and local accounts/groups
+    shortly after gaining a foothold.
+references:
+    - https://attack.mitre.org/techniques/T1087/
+    - https://attack.mitre.org/techniques/T1033/
+author: Allen Clement J
+date: 2026-09-19
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_whoami:
+        Image|endswith: '\whoami.exe'
+        CommandLine|contains: '/all'
+    selection_net_user:
+        Image|endswith: '\net.exe'
+        CommandLine|contains: 'user'
+    selection_net_group:
+        Image|endswith: '\net.exe'
+        CommandLine|contains:
+            - 'group'
+            - 'localgroup administrators'
+    condition: 1 of selection_*
+falsepositives:
+    - IT helpdesk and sysadmin activity. High-volume in normal
+      environments; best used correlated with other suspicious
+      activity rather than alerting standalone. Consider raising the
+      level or requiring correlation before paging on-call.
+level: low
+tags:
+    - attack.discovery
+    - attack.t1087
+    - attack.t1033

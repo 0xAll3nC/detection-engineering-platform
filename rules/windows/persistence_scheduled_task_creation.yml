@@ -1,0 +1,32 @@
+title: Scheduled Task Creation via schtasks.exe
+id: abcedd39-32e8-4d4a-b367-b472af8a5063
+status: experimental
+description: |
+    Detects use of schtasks.exe to create a new scheduled task, commonly
+    used by attackers for persistence or lateral movement (remote task
+    creation against \\hostname).
+references:
+    - https://attack.mitre.org/techniques/T1053/005/
+author: Allen Clement J
+date: 2026-09-19
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_image:
+        Image|endswith: '\schtasks.exe'
+    selection_create:
+        CommandLine|contains: '/create'
+    filter_known_admin:
+        ParentImage|endswith:
+            - '\ccmexec.exe'
+            - '\sccm.exe'
+    condition: all of selection_* and not filter_known_admin
+falsepositives:
+    - Legitimate software installers and IT admin scripts that register
+      scheduled tasks. Tune filter_known_admin to your SCCM/RMM tooling.
+level: medium
+tags:
+    - attack.persistence
+    - attack.execution
+    - attack.t1053.005

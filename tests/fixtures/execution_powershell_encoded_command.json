@@ -1,0 +1,46 @@
+[
+  {
+    "description": "PowerShell launched with a Base64-encoded command (classic obfuscation)",
+    "should_match": true,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "pwsh (PowerShell 7) launched with -EncodedCommand",
+    "should_match": true,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "CommandLine": "pwsh.exe -EncodedCommand JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "Normal PowerShell script execution from a .ps1 file, no encoding",
+    "should_match": false,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "CommandLine": "powershell.exe -ExecutionPolicy Bypass -File C:\\Scripts\\deploy.ps1",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "cmd.exe running a command that happens to contain the letter sequence 'enc' as part of a word, wrong image",
+    "should_match": false,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\cmd.exe",
+      "CommandLine": "cmd.exe /c encoding_convert.bat",
+      "ParentImage": "C:\\Windows\\explorer.exe",
+      "User": "CORP\\jdoe"
+    }
+  }
+]

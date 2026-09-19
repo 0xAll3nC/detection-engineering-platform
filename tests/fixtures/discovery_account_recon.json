@@ -1,0 +1,46 @@
+[
+  {
+    "description": "whoami /all run shortly after a new session - privilege/identity recon",
+    "should_match": true,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\whoami.exe",
+      "CommandLine": "whoami /all",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "net.exe used to enumerate the local administrators group",
+    "should_match": true,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\net.exe",
+      "CommandLine": "net localgroup administrators",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "Bare whoami with no /all switch - too common/low-signal to flag on its own",
+    "should_match": false,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\whoami.exe",
+      "CommandLine": "whoami",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
+    "description": "Unrelated process, notepad",
+    "should_match": false,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\notepad.exe",
+      "CommandLine": "notepad.exe",
+      "ParentImage": "C:\\Windows\\explorer.exe",
+      "User": "CORP\\jdoe"
+    }
+  }
+]

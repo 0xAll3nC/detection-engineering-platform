@@ -1,0 +1,8 @@
+{
+  "_comment": "FIXTURE DATA for --simulate mode only. Exercises the reporting/heatmap pipeline without live Wazuh+Windows infra. Replace with real --live results once your lab is wired up. One technique is deliberately marked 'missed' here to demonstrate what a real detection gap looks like in the heatmap.",
+  "T1003.001": "missed",
+  "T1547.001": "detected",
+  "T1053.005": "detected",
+  "T1059.001": "detected",
+  "T1087": "detected"
+}

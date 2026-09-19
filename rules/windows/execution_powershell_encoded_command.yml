@@ -1,0 +1,37 @@
+title: Suspicious Base64-Encoded PowerShell Command
+id: beb4de46-fa2c-4c8a-b242-833e7c9fbeb0
+status: experimental
+description: |
+    Detects PowerShell invoked with the -EncodedCommand (or short form
+    -enc/-e) switch, frequently used by attackers and post-exploitation
+    frameworks to obfuscate malicious commands and evade string-based
+    detections.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+    - https://attack.mitre.org/techniques/T1027/
+author: Allen Clement J
+date: 2026-09-19
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_image:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+    selection_flag:
+        CommandLine|contains:
+            - '-enc '
+            - '-EncodedCommand'
+            - ' -e '
+    condition: all of selection_*
+falsepositives:
+    - Some legitimate deployment/management scripts (SCCM, Intune) use
+      encoded commands. Baseline your environment and add a filter
+      selection for known-good parent processes if noisy.
+level: high
+tags:
+    - attack.execution
+    - attack.defense-evasion
+    - attack.t1059.001
+    - attack.t1027
