@@ -42,5 +42,16 @@
       "ParentImage": "C:\\Windows\\explorer.exe",
       "User": "CORP\\jdoe"
     }
+  },
+  {
+    "description": "Wazuh agent's own periodic host-inventory scan invoking 'net user' - real false positive confirmed live in this project's lab on 2026-09-29 via purple-team validation against wazuh-archives-*, before this filter existed",
+    "should_match": false,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\SysWOW64\\net.exe",
+      "CommandLine": "net user",
+      "ParentImage": "C:\\Program Files (x86)\\ossec-agent\\wazuh-agent.exe",
+      "User": "NT AUTHORITY\\SYSTEM"
+    }
   }
 ]
