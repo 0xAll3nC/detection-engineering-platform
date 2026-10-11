@@ -10,3 +10,6 @@ pytest>=7.4
 
 # Purple team orchestrator
 requests>=2.31
+
+# WinRM client used by atomic_runner.py to drive the Windows victim
+pywinrm>=0.4
