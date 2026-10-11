@@ -11,6 +11,7 @@ references:
     - https://attack.mitre.org/techniques/T1027/
 author: Allen Clement J
 date: 2026-09-19
+modified: 2026-10-11
 logsource:
     category: process_creation
     product: windows
@@ -32,6 +33,6 @@ falsepositives:
 level: high
 tags:
     - attack.execution
-    - attack.defense-evasion
+    - attack.stealth
     - attack.t1059.001
     - attack.t1027

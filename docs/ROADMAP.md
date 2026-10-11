@@ -41,6 +41,8 @@ Goal: stop executing behaviours and searching Wazuh by hand.
 - Per-behaviour results history; detection latency distribution
 - Navigator layers that distinguish rule-exists / validated / missed (ADR-0005)
 - Baseline FP measurement over archive windows (input to `stable`)
+- Align the Navigator layer's ATT&CK version (currently 15) with the pinned
+  validation release (19.2, `detection_platform.attack`)
 
 ## Phase 6 — continuous validation
 
