@@ -1,30 +1,24 @@
 """
-atomic_runner.py
------------------
-Drives Invoke-AtomicRedTeam on the Windows victim VM over WinRM, so the
-purple team runner (running from your Linux/orchestrator host) can kick
-off real attacker technique executions and know exactly when they ran.
+Drive Invoke-AtomicRedTeam on the Windows victim over WinRM.
 
-Prerequisites on the Windows victim VM:
-    - Invoke-AtomicRedTeam PowerShell module installed
-      (https://github.com/redcanaryco/invoke-atomicredteam)
-    - WinRM enabled and reachable from wherever this script runs
-      (quick lab setup: `winrm quickconfig` as admin on the victim, and an
-      account with local admin rights for pywinrm to authenticate as)
-    - Atomics content present at the module's default path (or pass
-      -PathToAtomicsFolder explicitly if you keep it elsewhere)
+Status: Phase 4 scaffold. Not yet execution-tested against the lab.
+Known gaps tracked for Phase 4: execution success is not verified beyond the
+WinRM status code, prerequisites (-GetPrereqs) are not fetched, and tests
+are selected by number rather than by auto_generated_guid.
 
-NOTE ON VERIFICATION: written against the documented pywinrm API
-(winrm.Session / run_ps), but not execution-tested here since this sandbox
-has no Windows host to WinRM into. Test against your real lab VM first --
-this is the piece most likely to need small fixes for your specific
-Windows/WinRM/auth setup (NTLM vs Kerberos vs Basic, HTTPS listener, etc).
+Prerequisites on the victim: Invoke-AtomicRedTeam installed, WinRM reachable
+from the orchestrator (NTLM over an isolated host-only network; see
+docs/SETUP.md), and a local admin account.
+
+Requires the optional `lab` extra (pywinrm); imported lazily so unit tests
+and simulated runs do not need it.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
+
+from detection_platform.config import VictimSettings
 
 
 @dataclass
@@ -41,35 +35,16 @@ class AtomicResult:
 
 
 class AtomicRunner:
-    def __init__(
-        self,
-        host: str | None = None,
-        username: str | None = None,
-        password: str | None = None,
-        transport: str = "ntlm",
-    ):
-        import winrm  # imported lazily so --simulate mode doesn't need pywinrm installed
+    def __init__(self, settings: VictimSettings | None = None):
+        import winrm  # optional dependency: pip install '.[lab]'
 
-        host = host or os.environ["ATOMIC_VICTIM_HOST"]
-        username = username or os.environ["ATOMIC_VICTIM_USER"]
-        password = password or os.environ["ATOMIC_VICTIM_PASS"]
-        self.session = winrm.Session(host, auth=(username, password), transport=transport)
+        s = settings or VictimSettings.from_env()
+        self.session = winrm.Session(s.host, auth=(s.username, s.password), transport=s.transport)
 
-    def run_technique(
-        self, technique_id: str, test_numbers: list[int] | None = None
-    ) -> AtomicResult:
-        """Run one or more numbered atomic tests for a technique.
-
-        test_numbers=None runs ALL tests defined for the technique, which
-        can be noisy/slow and may include destructive tests -- prefer
-        passing explicit test_numbers from pipeline/technique_test_map.yml
-        once you've reviewed what each numbered test actually does.
-        """
-        test_arg = (
-            f"-TestNumbers {','.join(str(n) for n in test_numbers)}" if test_numbers else ""
-        )
-        ps_script = f"Invoke-AtomicTest {technique_id} {test_arg} -Confirm:$false"
-        result = self.session.run_ps(ps_script)
+    def _invoke(self, technique_id: str, test_numbers: list[int] | None, extra: str = ""):
+        test_arg = f"-TestNumbers {','.join(str(n) for n in test_numbers)}" if test_numbers else ""
+        script = f"Invoke-AtomicTest {technique_id} {test_arg} {extra} -Confirm:$false"
+        result = self.session.run_ps(script)
         return AtomicResult(
             technique_id=technique_id,
             test_numbers=test_numbers,
@@ -78,20 +53,12 @@ class AtomicRunner:
             stderr=_decode(result.std_err),
         )
 
-    def cleanup_technique(self, technique_id: str, test_numbers: list[int] | None = None) -> AtomicResult:
-        """Run the -Cleanup pass so the victim VM doesn't accumulate artifacts test after test."""
-        test_arg = (
-            f"-TestNumbers {','.join(str(n) for n in test_numbers)}" if test_numbers else ""
-        )
-        ps_script = f"Invoke-AtomicTest {technique_id} {test_arg} -Cleanup -Confirm:$false"
-        result = self.session.run_ps(ps_script)
-        return AtomicResult(
-            technique_id=technique_id,
-            test_numbers=test_numbers,
-            status_code=result.status_code,
-            stdout=_decode(result.std_out),
-            stderr=_decode(result.std_err),
-        )
+    def run_technique(self, technique_id: str, test_numbers: list[int] | None = None):
+        """Run numbered atomic tests. test_numbers=None runs ALL tests (avoid)."""
+        return self._invoke(technique_id, test_numbers)
+
+    def cleanup_technique(self, technique_id: str, test_numbers: list[int] | None = None):
+        return self._invoke(technique_id, test_numbers, extra="-Cleanup")
 
 
 def _decode(value) -> str:
