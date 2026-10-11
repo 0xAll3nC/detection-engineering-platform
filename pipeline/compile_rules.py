@@ -83,12 +83,18 @@ def compile_rules() -> dict[str, str]:
         )
         sys.exit(1)
 
-    rule_files = sorted(str(p) for p in RULES_DIR.rglob("*.yml"))
-    if not rule_files:
+    if not any(RULES_DIR.rglob("*.yml")):
         print(f"No rules found under {RULES_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    rules = SigmaCollection.from_files(rule_files)
+    # NOTE: SigmaCollection.from_files() does not exist in pySigma 1.x --
+    # that was a guess made against older/generic docs before this script
+    # could be execution-tested (see the module docstring above). The real
+    # API is load_ruleset(), which takes a list of paths (files or
+    # directories) and recursively globs them for *.yml (recursion_pattern
+    # defaults to "**/*.yml", which matches how our rules are laid out
+    # under rules/windows/).
+    rules = SigmaCollection.load_ruleset([RULES_DIR])
     backend = OpensearchLuceneBackend(processing_pipeline=build_wazuh_pipeline())
     queries = backend.convert(rules)
 
