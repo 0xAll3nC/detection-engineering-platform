@@ -1,29 +1,77 @@
-# Maps each detection rule's PRIMARY MITRE ATT&CK technique to specific
-# numbered Atomic Red Team tests to run against the victim VM.
+# How each detection is validated live, keyed by Sigma rule id.
 #
-# Test numbers come from each technique's atomics/<T-ID>/T-ID.yaml in the
-# Invoke-AtomicRedTeam content repo (https://github.com/redcanaryco/atomic-red-team).
-# VERIFY these against your local atomics checkout before running --
-# the library's test numbering and content changes over time, and some
-# numbered tests are more destructive/disruptive than others. Read the
-# test description first.
+# mechanism: how the behaviour is produced. Currently only `atomic`
+#   (Invoke-AtomicRedTeam). The schema allows other mechanisms later
+#   (e.g. manual, replay, custom script) - see ADR-0006.
+# technique: the ATT&CK technique the selected behaviour is mapped to.
+# atomic.guid: auto_generated_guid of the Atomic test. Required before a rule
+#   can be promoted beyond `experimental` when mechanism == atomic
+#   (enforced by tests/detections/test_detection_quality.py).
+# atomic.test_numbers: legacy selector carried over from the original
+#   technique map. Test numbering changes between atomic-red-team releases;
+#   numbers below are UNVERIFIED and several are believed to select the wrong
+#   test (tracked in an issue). The orchestrator refuses unverified mappings
+#   unless --allow-unverified is passed.
+# verified: true only after the selected test has been reviewed against the
+#   pinned atomics checkout and confirmed to produce the detected behaviour.
 
-T1003.001:
-  test_numbers: [1]
-  note: "LSASS access techniques - confirm which numbered test uses comsvcs.dll MiniDump specifically, since T1003.001 covers several dumping methods"
+schema_version: 1
 
-T1547.001:
-  test_numbers: [1]
-  note: "Registry Run key persistence via reg.exe add"
+mappings:
+  f39c9d2f-5a30-4f95-8cd2-6c03a1329ee5:
+    rule: credential_access_lsass_dump_comsvcs
+    mechanism: atomic
+    technique: T1003.001
+    atomic:
+      guid: null
+      test_numbers: [1]
+    verified: false
+    notes: >-
+      Must select the comsvcs.dll MiniDump test specifically; T1003.001 contains
+      several dumping methods and test 1 is believed to be ProcDump. Expect
+      Defender to block execution (EXECUTION_FAILURE) unless the lab is configured.
 
-T1053.005:
-  test_numbers: [1]
-  note: "Scheduled task creation via schtasks.exe /create"
+  1076ece8-1900-4a0a-862d-f5248381bda9:
+    rule: persistence_registry_run_key
+    mechanism: atomic
+    technique: T1547.001
+    atomic:
+      guid: null
+      test_numbers: [1]
+    verified: false
+    notes: Registry Run key persistence via reg.exe add.
 
-T1059.001:
-  test_numbers: [1]
-  note: "Base64-encoded PowerShell command execution"
+  abcedd39-32e8-4d4a-b367-b472af8a5063:
+    rule: persistence_scheduled_task_creation
+    mechanism: atomic
+    technique: T1053.005
+    atomic:
+      guid: null
+      test_numbers: [1]
+    verified: false
+    notes: Scheduled task creation via schtasks.exe /create.
 
-T1087.001:
-  test_numbers: [1]
-  note: "Local account/group discovery (whoami, net user/group)"
+  beb4de46-fa2c-4c8a-b242-833e7c9fbeb0:
+    rule: execution_powershell_encoded_command
+    mechanism: atomic
+    technique: T1059.001
+    atomic:
+      guid: null
+      test_numbers: [1]
+    verified: false
+    notes: >-
+      Needs an -EncodedCommand test; T1059.001 test 1 is believed to be an
+      unrelated test.
+
+  0f9190b7-e73f-44f9-a131-852c6555c2b5:
+    rule: discovery_account_recon
+    mechanism: atomic
+    technique: T1087.001
+    atomic:
+      guid: null
+      test_numbers: [1]
+    verified: false
+    notes: >-
+      Needs the Windows local-account enumeration test (net user / whoami);
+      T1087.001 test 1 is believed to be a Linux test. The rule itself was
+      validated manually on 2026-10-11 (docs/validation/).
