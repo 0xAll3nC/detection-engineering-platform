@@ -7,7 +7,10 @@ from sigma.collection import SigmaCollection
 from sigma.validation import SigmaValidator
 from sigma.validators.core import validators
 
+from detection_platform.attack import ATTACK_VERSION, pin_pysigma_attack_data
 from tests.conftest import DETECTIONS_DIR
+
+pin_pysigma_attack_data()
 
 # These download MITRE / other taxonomies at runtime.
 NETWORK_VALIDATORS = {"attacktag", "cartag", "d3_fendtag", "stptag"}
@@ -27,4 +30,6 @@ def test_offline_sigma_validators_pass():
 
 @pytest.mark.network
 def test_attack_tags_are_valid():
-    assert not _issues(["attacktag"])
+    """Tags must be valid in the pinned ATT&CK release (see detection_platform.attack)."""
+    issues = _issues(["attacktag"])
+    assert not issues, f"Invalid for ATT&CK {ATTACK_VERSION}: {issues}"
