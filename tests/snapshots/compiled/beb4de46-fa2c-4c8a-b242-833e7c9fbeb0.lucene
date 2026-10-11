@@ -1,0 +1,1 @@
+(data.win.eventdata.image:(*\\powershell.exe OR *\\pwsh.exe)) AND (data.win.eventdata.commandLine:(*\-enc\ * OR *\-EncodedCommand* OR *\ \-e\ *))

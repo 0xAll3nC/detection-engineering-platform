@@ -1,60 +1,41 @@
 """
-compile_rules.py
------------------
-Compiles the Sigma rules in rules/windows/ into real, deployable OpenSearch
-Lucene queries against Wazuh's indexer (Wazuh 4.x ships an OpenSearch-based
-indexer, not raw Elasticsearch, so we target the OpenSearch backend).
+Compile Sigma rules to OpenSearch Lucene queries for the Wazuh indexer.
 
-This is the "detection-as-code" deployment step: sigma_evaluator.py (used
-by tests/test_rules.py) proves the rule LOGIC is correct against sample
-events; this script proves the rules actually COMPILE to valid queries you
-can run against your Wazuh indexer's REST API or paste into a saved search.
+Wazuh 4.x ships an OpenSearch-based indexer, so we target
+pysigma-backend-opensearch. Sigma's generic Sysmon field names (Image,
+CommandLine, ...) are mapped to Wazuh's indexed names (data.win.eventdata.*)
+by the processing pipeline built from mappings/wazuh_windows.yml.
 
-Requires (see requirements.txt):
-    pysigma
-    pysigma-backend-opensearch
-
-NOTE ON VERIFICATION: this file was written and reviewed against the
-pySigma / pySigma-backend-opensearch documentation, but PyPI is not
-reachable from the sandbox this project was built in, so this script has
-NOT been execution-tested end-to-end yet. Run it on your own machine
-(`pip install -r requirements.txt && python pipeline/compile_rules.py`)
-as your first Week-2 checkpoint, and fix up any API drift you hit --
-pySigma's API has moved before and may have moved again since. Treat this
-as a strong first draft, not gospel.
-
-Field mapping: our rules use generic Sysmon field names (Image,
-CommandLine, TargetObject, ...). Wazuh's default Windows eventchannel
-decoder indexes Sysmon fields under data.win.eventdata.* and
-data.win.system.*. WAZUH_FIELD_MAP below bridges the two so the compiled
-queries actually match real documents in your Wazuh indices -- verify
-these paths against a real alert document in your lab (Wazuh dashboard ->
-Discover) in case your decoder/version differs.
+Outputs are build artifacts (build/compiled/<rule-id>.lucene). Reviewed
+reference outputs live in tests/snapshots/compiled/; any change to a compiled
+query - from a rule edit, mapping edit or pySigma upgrade - shows up as a
+snapshot diff in the PR.
 """
 
 from __future__ import annotations
 
-import argparse
-import sys
+import json
+from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-RULES_DIR = REPO_ROOT / "rules" / "windows"
-OUTPUT_DIR = REPO_ROOT / "pipeline" / "compiled"
-
-WAZUH_FIELD_MAP = {
-    "EventID": "data.win.system.eventID",
-    "Image": "data.win.eventdata.image",
-    "CommandLine": "data.win.eventdata.commandLine",
-    "ParentImage": "data.win.eventdata.parentImage",
-    "TargetObject": "data.win.eventdata.targetObject",
-    "Details": "data.win.eventdata.details",
-    "EventType": "data.win.eventdata.eventType",
-    "User": "data.win.eventdata.user",
-}
+import yaml
 
 
-def build_wazuh_pipeline():
+@dataclass(frozen=True)
+class CompiledRule:
+    rule_id: str
+    title: str
+    source: Path
+    query: str
+
+
+def load_field_mapping(name: str = "wazuh_windows.yml") -> dict[str, str]:
+    text = resources.files("detection_platform.mappings").joinpath(name).read_text()
+    return dict(yaml.safe_load(text)["fields"])
+
+
+def build_wazuh_pipeline(field_map: dict[str, str] | None = None):
     from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
     from sigma.processing.transformations import FieldMappingTransformation
 
@@ -64,68 +45,44 @@ def build_wazuh_pipeline():
         items=[
             ProcessingItem(
                 identifier="wazuh_eventchannel_field_mapping",
-                transformation=FieldMappingTransformation(mapping=WAZUH_FIELD_MAP),
+                transformation=FieldMappingTransformation(
+                    mapping=field_map or load_field_mapping()
+                ),
             ),
         ],
     )
 
 
-def compile_rules() -> dict[str, str]:
-    try:
-        from sigma.backends.opensearch import OpensearchLuceneBackend
-        from sigma.collection import SigmaCollection
-    except ImportError as exc:
-        print(
-            "Missing pySigma / pySigma-backend-opensearch.\n"
-            "Install with:  pip install -r requirements.txt\n"
-            f"(import error: {exc})",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def compile_rules(detections_dir: Path) -> list[CompiledRule]:
+    from sigma.backends.opensearch import OpensearchLuceneBackend
+    from sigma.collection import SigmaCollection
 
-    if not any(RULES_DIR.rglob("*.yml")):
-        print(f"No rules found under {RULES_DIR}", file=sys.stderr)
-        sys.exit(1)
+    paths = sorted(detections_dir.rglob("*.yml"))
+    if not paths:
+        raise FileNotFoundError(f"No rules found under {detections_dir}")
 
-    # NOTE: SigmaCollection.from_files() does not exist in pySigma 1.x --
-    # that was a guess made against older/generic docs before this script
-    # could be execution-tested (see the module docstring above). The real
-    # API is load_ruleset(), which takes a list of paths (files or
-    # directories) and recursively globs them for *.yml (recursion_pattern
-    # defaults to "**/*.yml", which matches how our rules are laid out
-    # under rules/windows/).
-    rules = SigmaCollection.load_ruleset([RULES_DIR])
     backend = OpensearchLuceneBackend(processing_pipeline=build_wazuh_pipeline())
-    queries = backend.convert(rules)
-
-    # pySigma returns one query per rule, in the same order rules were
-    # loaded. Pair each compiled query back up with its source rule title.
-    results = {}
-    for rule, query in zip(rules.rules, queries):
-        results[rule.title] = query
-    return results
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--out", type=Path, default=OUTPUT_DIR, help="directory to write compiled queries to"
-    )
-    args = parser.parse_args()
-
-    results = compile_rules()
-    args.out.mkdir(parents=True, exist_ok=True)
-
-    for title, query in results.items():
-        slug = title.lower().replace(" ", "_")
-        out_file = args.out / f"{slug}.lucene"
-        out_file.write_text(query + "\n")
-        print(f"[{title}]")
-        print(f"  -> {out_file.relative_to(REPO_ROOT)}")
-        print(f"  {query}\n")
-
-    print(f"Compiled {len(results)} rule(s) to {args.out.relative_to(REPO_ROOT)}/")
+    compiled = []
+    # One rule per conversion keeps rule <-> query pairing explicit instead of
+    # relying on the backend preserving collection order.
+    for path in paths:
+        collection = SigmaCollection.from_yaml(path.read_text())
+        (rule,) = collection.rules
+        queries = backend.convert(collection)
+        if len(queries) != 1:
+            raise RuntimeError(f"{path}: expected 1 query, backend returned {len(queries)}")
+        compiled.append(
+            CompiledRule(rule_id=str(rule.id), title=rule.title, source=path, query=queries[0])
+        )
+    return compiled
 
 
-if __name__ == "__main__":
-    main()
+def write_compiled(compiled: list[CompiledRule], out_dir: Path, root: Path) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    index = {}
+    for c in compiled:
+        (out_dir / f"{c.rule_id}.lucene").write_text(c.query + "\n")
+        index[c.rule_id] = {"title": c.title, "source": str(c.source.relative_to(root))}
+    index_path = out_dir / "index.json"
+    index_path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n")
+    return index_path

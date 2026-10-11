@@ -1,0 +1,1 @@
+data.win.eventdata.image:*\\rundll32.exe AND data.win.eventdata.commandLine:*comsvcs.dll* AND data.win.eventdata.commandLine:*MiniDump*

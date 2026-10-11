@@ -1,9 +1,7 @@
 """
-test_backend_semantics.py
--------------------------
 Backend-semantics tests: how compiled rules behave on the *target backend*
 (Wazuh indexer / OpenSearch), as opposed to what Sigma says a rule should
-match (tests/test_rules.py).
+match (tests/detections/test_rule_fixtures.py).
 
 These are deliberately separate. A rule fixture states intended Sigma
 behaviour and never changes to accommodate a backend limitation. When the
@@ -16,21 +14,16 @@ strict xfail linked to the evidence, so:
 Backend model: compiled OpenSearch Lucene wildcards run against
 data.win.eventdata.* fields mapped as `keyword` with no normalizer, so
 matching is case-sensitive. Confirmed live on 2026-10-11, see
-docs/validation/2026-10-11-phase3-recon-tuning.md.
+docs/validation/2026-10-11-phase3-recon-tuning.md and ADR-0003.
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
-from sigma_evaluator import SigmaRule  # noqa: E402
+from tests.conftest import rule_by_stem
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-RECON_RULE = SigmaRule.load(REPO_ROOT / "rules" / "windows" / "discovery_account_recon.yml")
+RECON_RULE = rule_by_stem("discovery_account_recon")
 
 WHOAMI = "C:\\Windows\\System32\\whoami.exe"
 CMD = "C:\\Windows\\System32\\cmd.exe"
