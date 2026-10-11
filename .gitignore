@@ -1,15 +1,33 @@
+# Python
 __pycache__/
-*.pyc
-.pytest_cache/
+*.py[cod]
+*.egg-info/
 .venv/
 venv/
+dist/
 
-# generated artifacts - regenerate with compile_rules.py / purple_team_runner.py
-pipeline/compiled/
-pipeline/results/
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-# local secrets / lab connection details - never commit these
+# Generated artifacts - regenerate with `detplat compile` / `detplat validate`
+build/
+
+# Local secrets and lab connection details - never commit these
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Raw live-validation output can contain hostnames, usernames and telemetry.
+# Commit sanitised records under docs/validation/ instead.
+phase*_results_*.json
 
 # OS / editor metadata
 .DS_Store
+.idea/
+.vscode/
