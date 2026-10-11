@@ -31,7 +31,7 @@ simulate: ## Run the SIMULATED reporting pipeline
 	$(UV) run detplat validate --simulate tests/fixtures/reporting/simulated_results.json
 
 # Accepted advisories: each needs a justification in SECURITY.md
-# ("Accepted dependency risks") and a tracking issue. Review on every upgrade.
+# ("Accepted dependency risks") and a tracking issue (PYSEC-2026-2447: #10). Review on every upgrade.
 AUDIT_IGNORES := --ignore-vuln PYSEC-2026-2447
 
 audit: ## Dependency vulnerability audit

@@ -41,7 +41,7 @@ def test_backend_model_reproduces_live_lowercase_detection():
         "Known DETECTION_GAP: compiled Lucene wildcards are case-sensitive on "
         "Wazuh keyword fields, so `WHOAMI /ALL` (telemetry present) is not "
         "matched. Live-confirmed 2026-10-11; see "
-        "docs/validation/2026-10-11-phase3-recon-tuning.md"
+        "docs/validation/2026-10-11-phase3-recon-tuning.md (issue #2)"
     ),
 )
 def test_uppercase_recon_command_matches_on_wazuh_backend():

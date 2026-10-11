@@ -32,3 +32,5 @@ Prototype options 1 and 2 against the lab, using the existing strict xfail and
 the live `WHOAMI /ALL` reproduction as the acceptance test. Decide in a
 superseding update to this ADR. The doubled-backslash hypothesis is verified
 separately first, because it may influence the choice.
+
+Tracking: #2 (case sensitivity), #3 (backslash hypothesis).
