@@ -19,6 +19,17 @@ never end up in the repo:
     WAZUH_INDEXER_VERIFY_TLS  "true"/"false" (default: false, since the
                                default Wazuh single-node lab setup uses a
                                self-signed cert)
+
+WHY WE SEARCH wazuh-archives-* AND NOT wazuh-alerts-*: Wazuh's manager
+only writes to wazuh-alerts-* when its OWN built-in ruleset decides an
+event is alert-worthy. Our Sigma rules are a separate, independent
+detection layer -- we don't want their fate to depend on whether Wazuh's
+stock ruleset happened to also flag the same event. So we run our
+compiled queries against the archives index instead, which holds every
+event Sysmon shipped, regardless of whether Wazuh's own rules fired on
+it. This requires <logall_json>yes</logall_json> enabled on the manager
+and the Filebeat archives module turned on (see docs/SETUP.md) -- without
+that, wazuh-archives-* simply won't exist or will be empty.
 """
 
 from __future__ import annotations
@@ -36,7 +47,7 @@ class WazuhClient:
         username: str | None = None,
         password: str | None = None,
         verify_tls: bool | None = None,
-        index_pattern: str = "wazuh-alerts-*",
+        index_pattern: str = "wazuh-archives-*",
     ):
         self.base_url = (base_url or os.environ["WAZUH_INDEXER_URL"]).rstrip("/")
         self.username = username or os.environ["WAZUH_INDEXER_USER"]
