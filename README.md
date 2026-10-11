@@ -1,104 +1,98 @@
-# Detection Engineering CI/CD & Purple Team Validation Pipeline
+# Detection Engineering Platform
 
-A full detection engineering lifecycle: Sigma detection rules are
-version-controlled and unit-tested like code, compiled into real queries
-for a Wazuh/OpenSearch SIEM, and then validated against real attacker
-behavior with an automated purple team pass that produces a MITRE ATT&CK
-Navigator coverage heatmap -- so "is this detection actually working" has
-an evidence-backed answer instead of a guess.
+[![CI](https://github.com/0xAll3nC/detection-engineering-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/0xAll3nC/detection-engineering-platform/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+Detection-as-code with live validation. Sigma rules are version-controlled
+and tested like software, compiled for a Wazuh (OpenSearch) SIEM, and then
+proven or disproven against real ATT&CK-mapped behaviour on a Windows endpoint.
+Validation uses raw telemetry, so a miss can be traced to its cause: the
+behaviour didn't run, telemetry was missing, ingestion failed, or the
+detection logic didn't match.
 
 ```
-commit a rule  ->  CI lints + unit-tests it  ->  compiles to a Wazuh query
-      ->  Atomic Red Team executes the real technique on a Windows victim
-      ->  orchestrator checks Wazuh for a matching alert
-      ->  ATT&CK Navigator heatmap shows what's actually covered
+Sigma rule → fixture tests & quality gates → pySigma compile (Wazuh mapping)
+  → execute behaviour → Sysmon → Wazuh raw archives → correlate
+  → classify (EXECUTION / TELEMETRY / INGESTION / DETECTION gap, or DETECTED)
+  → evidence-based ATT&CK reporting
 ```
 
-## Why this exists
+## Current state
 
-Most "detection engineering" portfolios stop at "I wrote some Sigma
-rules." The two things that actually separate a rule-writer from a
-detection *engineer* are: (1) rules that are tested and CI-gated like any
-other code, and (2) proof the rules fire against real attacker behavior,
-not just against the log sample the author had in mind while writing it.
-This project does both, end to end.
+**Phase 3 (first live validation) is closed. Phase 4 (automated
+purple-team validation) is next.** See [docs/STATUS.md](docs/STATUS.md) and
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Architecture
+All five detections are **`experimental`**. They are unit-tested and compile
+to reviewed queries. One has been validated live, manually, and that run
+surfaced a confirmed gap. None is production-ready yet.
 
-| Layer | What it does | Key files |
+| Detection | ATT&CK | Live evidence |
 |---|---|---|
-| **Detection-as-code** | Sigma rules in Git, unit-tested against fixture log events on every commit | `rules/windows/*.yml`, `pipeline/sigma_evaluator.py`, `tests/test_rules.py` |
-| **Compilation** | Compiles Sigma -> real OpenSearch/Lucene queries mapped to Wazuh's actual indexed field names | `pipeline/compile_rules.py` |
-| **Purple team automation** | Runs Atomic Red Team techniques on a Windows victim, checks whether the compiled query catches them | `pipeline/atomic_runner.py`, `pipeline/wazuh_client.py`, `pipeline/purple_team_runner.py` |
-| **Coverage reporting** | Turns results into a MITRE ATT&CK Navigator heatmap | `pipeline/navigator_heatmap.py` |
-| **CI** | Runs all of the above on every push/PR | `.github/workflows/detection-ci.yml` |
+| Local Account and Group Reconnaissance | T1087.001, T1033 | Manually validated 2026-10-11. Wazuh-agent false positive tuned out and re-validated. **Uppercase variant missed** (confirmed backend gap) |
+| LSASS Memory Dump via comsvcs.dll | T1003.001 | Not yet validated live |
+| Registry Run Key Persistence | T1547.001 | Not yet validated live; predicted backslash-encoding issue (hypothesis) |
+| Scheduled Task Creation via schtasks.exe | T1053.005 | Not yet validated live |
+| Base64-Encoded PowerShell | T1059.001, T1027 | Not yet validated live |
 
-## Current rule coverage
+This project reports **validated behaviours**, not technique "coverage". A
+rule existing for a technique is not evidence that the technique is detected
+([ADR-0005](docs/adr/0005-validated-behaviours-not-coverage.md)).
 
-5 Windows/Sysmon detections, each unit-tested with positive and negative
-fixtures:
+## What the first live validation found
 
-| Rule | Technique | Level |
-|---|---|---|
-| LSASS Memory Dump via comsvcs.dll MiniDump | T1003.001 (Credential Access) | high |
-| Registry Run Key Persistence | T1547.001 (Persistence) | medium |
-| Scheduled Task Creation via schtasks.exe | T1053.005 (Persistence) | medium |
-| Suspicious Base64-Encoded PowerShell Command | T1059.001 / T1027 (Execution / Defense Evasion) | high |
-| Local Account and Group Reconnaissance | T1087 / T1033 (Discovery) | low |
+- **Raw archives, not alerts.** Validation queries run against
+  `wazuh-archives-*`. Querying `wazuh-alerts-*` would only see events that
+  Wazuh's own rules had already selected
+  ([ADR-0002](docs/adr/0002-wazuh-archives-as-validation-source.md)).
+- **Environment false positive.** The Wazuh agent's inventory collection runs
+  `net.exe`. This was filtered by parent process, pinned by a regression
+  fixture, and re-validated: 8 of 8 removed hits were agent-parented
+  ([ADR-0007](docs/adr/0007-environment-specific-fp-filters.md)).
+- **Unit tests and the backend disagree.** Sigma matching is
+  case-insensitive, but the compiled Lucene wildcards are case-sensitive on
+  Wazuh `keyword` fields, so `WHOAMI /ALL` evaded a rule whose unit tests
+  passed. This is tracked as a strict xfail rather than hidden
+  ([ADR-0003](docs/adr/0003-two-layer-testing-and-backend-semantics.md),
+  [record](docs/validation/2026-10-11-phase3-recon-tuning.md)).
 
 ## Quick start
 
 ```bash
-pip install -r requirements.txt
-
-# fast, no infra needed - proves the rule LOGIC is correct
-pytest tests/ -v
-
-# compiles rules to real Wazuh/OpenSearch queries
-python pipeline/compile_rules.py
-
-# runs the full purple-team-to-heatmap pipeline with fixture data,
-# no live Wazuh/Windows required - good for a first look at the plumbing
-python pipeline/purple_team_runner.py --simulate
+uv sync --extra lab     # or: pip install -e '.[lab]' plus the dev tools in pyproject.toml
+make check              # lint + tests + compile
+uv run detplat compile  # → build/compiled/<rule-id>.lucene
+make simulate           # reporting pipeline on SIMULATED data (labelled as such)
 ```
 
-Point it at a real lab and run the same command with `--live` once your
-Wazuh server + Windows victim are up -- see [docs/SETUP.md](docs/SETUP.md)
-for the full walkthrough (Wazuh Docker Compose, Sysmon config, Wazuh agent
-enrollment, WinRM, Invoke-AtomicRedTeam install).
+Live runs need a lab. See [docs/SETUP.md](docs/SETUP.md) and `.env.example`.
 
-## Adding a new detection
+## Repository layout
 
-1. Write the rule in `rules/windows/<name>.yml` (standard Sigma format,
-   tag it with an `attack.tNNNN` MITRE ATT&CK tag).
-2. Add `tests/fixtures/<name>.json` with at least one event that should
-   match and one that shouldn't (`test_every_rule_has_at_least_one_positive_and_negative_case`
-   in CI enforces this).
-3. `pytest tests/ -v` locally, then push -- CI lints, tests, and compiles
-   the rule automatically.
-4. Add the rule's primary technique to `pipeline/technique_test_map.yml`
-   so the purple team runner knows which Atomic Red Team test validates it.
+| Path | Contents |
+|---|---|
+| `detections/` | Sigma rules by platform and tactic |
+| `src/detection_platform/` | Evaluator, compiler, Wazuh client, execution, validation, reporting, `detplat` CLI |
+| `validation/mappings.yml` | How each rule is validated live (mechanism, technique, Atomic GUID) |
+| `tests/` | Rule fixtures, quality gates, compiled-query snapshots, backend-semantics tests, unit tests |
+| `docs/` | [Architecture](docs/ARCHITECTURE.md), [Definition of Done](docs/DEFINITION_OF_DONE.md), [ADRs](docs/adr/), [validation records](docs/validation/), [status](docs/STATUS.md), [roadmap](docs/ROADMAP.md) |
 
-## Roadmap
+## Quality gates (CI)
 
-- [x] Windows/Sysmon detection-as-code pipeline with CI-gated unit tests
-- [x] Sigma -> Wazuh/OpenSearch query compilation
-- [x] Automated purple team validation + ATT&CK Navigator heatmap
-- [ ] Live validation run against the real lab (first checkpoint once
-      Wazuh + Windows victim are online)
-- [ ] Extend `logsource: product` coverage to Linux (auditd-based rules,
-      new fixture set, Linux victim + Atomic Red Team Linux atomics)
-- [ ] Tune false-positive filters using a short baseline capture period
-- [ ] Optional: small LLM step that drafts a candidate Sigma rule when a
-      purple team pass finds a gap
+On every pull request, CI runs:
+- Lint: ruff, plus YAML/JSON checks.
+- Tests on Python 3.11 and 3.13:
+  - rule fixtures,
+  - Definition of Done gates,
+  - pySigma validators, including ATT&CK tags,
+  - field-mapping coverage and compiled-query snapshots,
+  - known backend divergences, tracked as strict xfails.
+- Secret scanning of the full git history (gitleaks).
+- A dependency audit (pip-audit).
+- CodeQL and Dependabot.
 
-## A note on what's execution-tested vs. what isn't
+Live validation never runs in public CI.
 
-Everything that can run without external infrastructure -- the rule
-logic, the fixture-based unit tests, the heatmap generation, the
-`--simulate` pipeline run -- has been executed and verified working.
-`compile_rules.py` (needs pySigma + PyPI access) and `atomic_runner.py`
-(needs a real WinRM host) were written against documented APIs but
-couldn't be execution-tested in the environment this project was
-scaffolded in. They're the right place to start once your lab is up --
-see the notes at the top of each file.
+## License
+
+[Apache-2.0](LICENSE)
