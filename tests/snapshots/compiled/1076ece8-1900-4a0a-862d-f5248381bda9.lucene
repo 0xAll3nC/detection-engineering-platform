@@ -1,0 +1,1 @@
+(data.win.eventdata.eventType:SetValue AND (data.win.eventdata.targetObject:(*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\* OR *\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\* OR *\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\*))) AND (NOT (data.win.eventdata.details:(*OneDriveSetup.exe* OR *SecurityHealth*)))

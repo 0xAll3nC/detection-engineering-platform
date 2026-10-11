@@ -1,0 +1,1 @@
+((data.win.eventdata.image:*\\whoami.exe AND data.win.eventdata.commandLine:*\/all*) OR (data.win.eventdata.image:*\\net.exe AND data.win.eventdata.commandLine:*user*) OR (data.win.eventdata.image:*\\net.exe AND (data.win.eventdata.commandLine:(*group* OR *localgroup\ administrators*)))) AND (NOT data.win.eventdata.parentImage:*\\wazuh\-agent.exe)

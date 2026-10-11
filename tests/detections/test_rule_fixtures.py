@@ -1,45 +1,31 @@
 """
-test_rules.py
--------------
-Unit tests for every Sigma rule under rules/windows/, driven by
-JSON fixtures in tests/fixtures/<rule_filename_stem>.json.
+Rule fixture tests: intended Sigma behaviour of every detection.
 
-Each fixture file is a list of:
-    {"description": str, "should_match": bool, "event": {...}}
-
-Run with:  pytest -v
+Each rule `detections/**/<stem>.yml` has `tests/fixtures/detections/<stem>.json`,
+a list of {"description": str, "should_match": bool, "event": {...}}.
+Fixtures state what a rule SHOULD match under Sigma semantics; backend
+limitations are never encoded here (see tests/backend/).
 """
 
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
-from sigma_evaluator import load_rules  # noqa: E402
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-RULES_DIR = REPO_ROOT / "rules" / "windows"
-FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-
-rules = load_rules(RULES_DIR)
+from tests.conftest import DETECTION_FIXTURES_DIR, RULES
 
 
 def _fixture_cases():
-    """Yield (rule, case_dict) for every rule that has a fixture file."""
-    for rule in rules:
-        fixture_path = FIXTURES_DIR / f"{rule.path.stem}.json"
+    for rule in RULES:
+        fixture_path = DETECTION_FIXTURES_DIR / f"{rule.path.stem}.json"
         if not fixture_path.exists():
             continue
-        cases = json.loads(fixture_path.read_text())
-        for case in cases:
+        for case in json.loads(fixture_path.read_text()):
             yield pytest.param(rule, case, id=f"{rule.path.stem}::{case['description']}")
 
 
-@pytest.mark.parametrize("rule,case", list(_fixture_cases()))
+@pytest.mark.parametrize(("rule", "case"), list(_fixture_cases()))
 def test_rule_against_fixture(rule, case):
     result = rule.matches(case["event"])
     assert result == case["should_match"], (
@@ -51,23 +37,18 @@ def test_rule_against_fixture(rule, case):
 def test_every_rule_has_a_fixture_file():
     """Guardrail: a rule with no test fixtures is an untested detection."""
     missing = [
-        rule.path.name
-        for rule in rules
-        if not (FIXTURES_DIR / f"{rule.path.stem}.json").exists()
+        r.path.name for r in RULES if not (DETECTION_FIXTURES_DIR / f"{r.path.stem}.json").exists()
     ]
     assert not missing, f"Rules missing test fixtures: {missing}"
 
 
 def test_every_rule_has_at_least_one_positive_and_negative_case():
-    for rule in rules:
-        fixture_path = FIXTURES_DIR / f"{rule.path.stem}.json"
-        cases = json.loads(fixture_path.read_text())
-        positives = [c for c in cases if c["should_match"]]
-        negatives = [c for c in cases if not c["should_match"]]
-        assert positives, f"{rule.path.name} has no positive (should-match) fixture"
-        assert negatives, f"{rule.path.name} has no negative (should-not-match) fixture"
+    for rule in RULES:
+        cases = json.loads((DETECTION_FIXTURES_DIR / f"{rule.path.stem}.json").read_text())
+        assert any(c["should_match"] for c in cases), f"{rule.path.name}: no positive fixture"
+        assert any(not c["should_match"] for c in cases), f"{rule.path.name}: no negative fixture"
 
 
 def test_every_rule_has_an_attack_technique_tag():
-    for rule in rules:
+    for rule in RULES:
         assert rule.attack_techniques, f"{rule.path.name} has no attack.tNNNN tag"

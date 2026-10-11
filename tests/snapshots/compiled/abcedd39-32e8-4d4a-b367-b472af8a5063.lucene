@@ -1,0 +1,1 @@
+(data.win.eventdata.image:*\\schtasks.exe AND data.win.eventdata.commandLine:*\/create*) AND (NOT (data.win.eventdata.parentImage:(*\\ccmexec.exe OR *\\sccm.exe)))

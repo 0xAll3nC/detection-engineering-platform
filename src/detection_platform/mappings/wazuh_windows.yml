@@ -1,0 +1,25 @@
+# Sigma (Sysmon) field name -> Wazuh indexer field for Windows eventchannel events.
+#
+# Verified against live wazuh-archives-* documents (Wazuh 4.14.6, Sysmon via
+# the Microsoft-Windows-Sysmon/Operational eventchannel) on 2026-10-11.
+#
+# Observed indexing properties that affect detection semantics (ADR-0003):
+#   - data.win.eventdata.* string fields are `keyword` with no normalizer:
+#     wildcard matching is CASE-SENSITIVE.
+#   - Stored values contain doubled backslashes and escaped quotes
+#     (e.g. C:\\Windows\\System32\\whoami.exe). Impact on interior-backslash
+#     patterns is an open hypothesis - see docs/validation/.
+#
+# tests/detections/test_field_mapping.py fails if a rule references a field
+# missing from this map (an unmapped field compiles to a query that can
+# never match).
+name: Wazuh Windows eventchannel field mapping
+fields:
+  EventID: data.win.system.eventID
+  Image: data.win.eventdata.image
+  CommandLine: data.win.eventdata.commandLine
+  ParentImage: data.win.eventdata.parentImage
+  TargetObject: data.win.eventdata.targetObject
+  Details: data.win.eventdata.details
+  EventType: data.win.eventdata.eventType
+  User: data.win.eventdata.user
