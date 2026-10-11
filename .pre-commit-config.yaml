@@ -1,0 +1,31 @@
+# Local quality gates. CI runs the same hooks (`pre-commit run --all-files`),
+# so a commit that passes locally passes the lint job.
+#   uv run pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^tests/snapshots/
+      - id: trailing-whitespace
+        exclude: ^tests/snapshots/
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  # Secret scanning of staged changes. CI additionally scans full history.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

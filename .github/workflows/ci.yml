@@ -1,66 +1,97 @@
-name: Detection CI
+name: CI
+
+# Quality gates for every PR and for main. Nothing here touches the lab:
+# live validation needs lab credentials and network access and is never run
+# from public CI (a self-hosted runner on a public repo would let fork PRs
+# execute code inside the lab).
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"          # fail if uv.lock is out of date with pyproject.toml
+  PYTHONUNBUFFERED: "1"
 
 jobs:
-  validate-detections:
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8
         with:
-          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --extra lab
+      # gitleaks runs in the dedicated full-history job below.
+      - run: SKIP=gitleaks uv run pre-commit run --all-files --show-diff-on-failure
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Lint Sigma rule YAML
-        run: |
-          python - <<'PY'
-          import sys
-          from pathlib import Path
-          import yaml
-
-          required_fields = {"title", "id", "status", "logsource", "detection", "level", "tags"}
-          errors = []
-
-          for path in sorted(Path("rules").rglob("*.yml")):
-              rule = yaml.safe_load(path.read_text())
-              missing = required_fields - rule.keys()
-              if missing:
-                  errors.append(f"{path}: missing required fields {missing}")
-              if "condition" not in rule.get("detection", {}):
-                  errors.append(f"{path}: detection block has no condition")
-              if not any(t.startswith("attack.t") for t in rule.get("tags", [])):
-                  errors.append(f"{path}: no attack.tNNNN MITRE ATT&CK tag")
-
-          if errors:
-              print("Sigma lint FAILED:")
-              for e in errors:
-                  print(f"  - {e}")
-              sys.exit(1)
-          print(f"Sigma lint passed for all rules.")
-          PY
-
-      - name: Run detection logic unit tests
-        run: pytest tests/ -v
-
-      - name: Compile rules to Wazuh/OpenSearch queries (detection-as-code deploy check)
-        run: python pipeline/compile_rules.py
-
-      - name: Run simulated purple team pass (no live infra required)
-        run: python pipeline/purple_team_runner.py --simulate --out pipeline/results
-
-      - name: Upload ATT&CK Navigator coverage heatmap
-        uses: actions/upload-artifact@v4
+  test:
+    name: test (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8
         with:
-          name: attck-coverage-heatmap
-          path: pipeline/results/navigator_layer.json
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - run: uv sync --extra lab
+      # Rule fixtures, backend-semantics xfails, DoD gates, field mapping,
+      # compiled-query snapshots, pySigma validators (incl. ATT&CK tags).
+      - run: uv run pytest --cov --cov-report=term --cov-report=xml
+
+  artifacts:
+    name: compile + simulated report
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run detplat compile
+      - run: uv run detplat validate --simulate tests/fixtures/reporting/simulated_results.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: compiled-queries-and-simulated-report
+          path: build/
+          retention-days: 14
+
+  security:
+    name: security (secrets + dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0   # full history for secret scanning
+      - name: Install gitleaks (pinned, checksum-verified)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+      - name: Secret scan (full git history)
+        run: ./gitleaks git --redact --exit-code 1 -v .
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8
+        with:
+          enable-cache: true
+      - run: uv sync --extra lab
+      - name: Dependency audit
+        run: make audit

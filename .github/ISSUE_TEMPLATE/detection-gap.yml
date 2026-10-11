@@ -1,0 +1,32 @@
+name: Detection gap / validation finding
+description: A behaviour that was missed, or a divergence found during validation
+labels: [detection, validation-finding]
+body:
+  - type: dropdown
+    id: classification
+    attributes:
+      label: Classification
+      options:
+        - DETECTION_GAP
+        - TELEMETRY_GAP
+        - INGESTION_GAP
+        - EXECUTION_FAILURE
+        - ORCHESTRATOR_ERROR
+        - Hypothesis (not yet verified live)
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id / file
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Sanitised observations only - no hostnames, usernames, credentials or raw telemetry dumps.
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Verification / remediation plan
