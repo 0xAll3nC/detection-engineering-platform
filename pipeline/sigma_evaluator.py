@@ -77,14 +77,26 @@ class SigmaRule:
                 techniques.append(f"T{m.group(1)}")
         return techniques
 
-    def matches(self, event: dict[str, Any]) -> bool:
+    def matches(self, event: dict[str, Any], case_sensitive: bool = False) -> bool:
+        """Evaluate the rule against one event.
+
+        case_sensitive=False (default) is Sigma's specified string-matching
+        semantics. case_sensitive=True models how the compiled OpenSearch
+        Lucene wildcards behave on Wazuh's un-normalised `keyword` fields
+        (confirmed live 2026-10-11, see docs/validation/). It exists only so
+        backend-semantics tests can document that gap; it is not a second
+        definition of what a rule should match.
+        """
         selection_results = {
-            name: _match_selection(event, spec) for name, spec in self.selections.items()
+            name: _match_selection(event, spec, case_sensitive)
+            for name, spec in self.selections.items()
         }
         return _evaluate_condition(self.condition, selection_results)
 
 
-def _match_field(event: dict[str, Any], field_key: str, expected: Any) -> bool:
+def _match_field(
+    event: dict[str, Any], field_key: str, expected: Any, case_sensitive: bool = False
+) -> bool:
     if "|" in field_key:
         field, modifier = field_key.split("|", 1)
     else:
@@ -93,11 +105,12 @@ def _match_field(event: dict[str, Any], field_key: str, expected: Any) -> bool:
     actual = event.get(field)
     if actual is None:
         return False
-    actual_str = str(actual).lower()
+    fold = (lambda x: x) if case_sensitive else str.lower
+    actual_str = fold(str(actual))
 
     values = expected if isinstance(expected, list) else [expected]
     for val in values:
-        val_str = str(val).lower()
+        val_str = fold(str(val))
         if modifier == "contains":
             if val_str in actual_str:
                 return True
@@ -113,10 +126,15 @@ def _match_field(event: dict[str, Any], field_key: str, expected: Any) -> bool:
     return False
 
 
-def _match_selection(event: dict[str, Any], selection_spec: dict[str, Any]) -> bool:
+def _match_selection(
+    event: dict[str, Any], selection_spec: dict[str, Any], case_sensitive: bool = False
+) -> bool:
     # A selection is a mapping of field -> expected value(s); all fields
     # in the mapping must match (AND). A list value on one field is OR.
-    return all(_match_field(event, field, expected) for field, expected in selection_spec.items())
+    return all(
+        _match_field(event, field, expected, case_sensitive)
+        for field, expected in selection_spec.items()
+    )
 
 
 _OF_PATTERN = re.compile(r"(?P<quant>\d+|all) of (?P<target>[\w\*]+)")

@@ -11,6 +11,17 @@
     }
   },
   {
+    "description": "WHOAMI /ALL in uppercase - Sigma string matching is case-insensitive, so this MUST match (live backend gap tracked separately in tests/test_backend_semantics.py)",
+    "should_match": true,
+    "event": {
+      "EventID": 1,
+      "Image": "C:\\Windows\\System32\\whoami.exe",
+      "CommandLine": "WHOAMI  /ALL",
+      "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+      "User": "CORP\\jdoe"
+    }
+  },
+  {
     "description": "net.exe used to enumerate the local administrators group",
     "should_match": true,
     "event": {
