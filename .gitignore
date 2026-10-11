@@ -10,3 +10,6 @@ pipeline/results/
 
 # local secrets / lab connection details - never commit these
 .env
+
+# OS / editor metadata
+.DS_Store
