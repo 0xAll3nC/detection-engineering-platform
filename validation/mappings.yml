@@ -10,7 +10,7 @@
 # atomic.test_numbers: legacy selector carried over from the original
 #   technique map. Test numbering changes between atomic-red-team releases;
 #   numbers below are UNVERIFIED and several are believed to select the wrong
-#   test (tracked in an issue). The orchestrator refuses unverified mappings
+#   test (issue #4). The orchestrator refuses unverified mappings
 #   unless --allow-unverified is passed.
 # verified: true only after the selected test has been reviewed against the
 #   pinned atomics checkout and confirmed to produce the detected behaviour.

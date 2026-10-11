@@ -36,17 +36,17 @@ Evidence: [docs/validation/2026-10-11-phase3-recon-tuning.md](validation/2026-10
 
 ## Known gaps (tracked as GitHub issues)
 
-See the issue tracker, label `validation-finding` / `detection`. Summary:
-
-1. Case-sensitive compiled wildcards (confirmed DETECTION_GAP)
-2. Doubled-backslash storage vs interior-backslash patterns (hypothesis, Run-key rule; verify live before any change)
-3. Atomic test mappings unverified / likely wrong test numbers; pin GUIDs
-4. No logsource → channel/EventID constraint in compiled queries
-5. Account recon rule: over-broad `user` substring, `net1.exe` missing, agent filter not path-anchored
-6. Encoded PowerShell rule misses flag variants (`-ec`, `/enc`, end-of-line)
-7. Run-key filter on attacker-controllable `Details` substrings
-8. LSASS rule misses the `#24` ordinal form
-9. Accepted dependency risk: diskcache PYSEC-2026-2447 (no fix available)
+| Issue | Gap | State |
+|---|---|---|
+| #2 | Case-sensitive compiled wildcards (`WHOAMI /ALL` evades) | **Confirmed** DETECTION_GAP; strict xfail |
+| #3 | Doubled-backslash storage vs interior-backslash patterns (Run-key rule) | **Hypothesis**; verify live before any change |
+| #4 | Atomic test selection unverified; pin by GUID | Phase 4 |
+| #5 | No logsource → Sysmon channel/EventID constraint | Open |
+| #6 | Account recon: over-broad `user`, `net1.exe`, filter anchoring | Open |
+| #7 | Encoded PowerShell flag variants | Open |
+| #8 | Run-key FP filter on attacker-controllable `Details` | Open (after #3) |
+| #9 | LSASS ordinal `#24` form | Open |
+| #10 | diskcache PYSEC-2026-2447 accepted risk | Accepted, monitored |
 
 ## Next steps
 
@@ -55,8 +55,8 @@ See the issue tracker, label `validation-finding` / `detection`. Summary:
    secret scan pass; then enable branch protection, secret scanning push
    protection and private vulnerability reporting.
 3. Re-point the local working copy at GitHub (see below).
-4. Phase 4, starting with verifying and pinning the Atomic tests (GUIDs) and
-   the doubled-backslash experiment.
+4. Phase 4, starting with #4 (verify and pin Atomic tests by GUID) and the
+   #3 doubled-backslash experiment.
 
 ## Local working copy
 

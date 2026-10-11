@@ -28,4 +28,4 @@ and a tracking issue, and are re-reviewed on every dependency upgrade.
 
 | Advisory | Package | Path | Justification | Review |
 |---|---|---|---|---|
-| PYSEC-2026-2447 / CVE-2025-69872 | diskcache 5.6.3 | transitive via pySigma (MITRE data cache) | No fixed version exists. Exploitation requires write access to the local cache directory of the user running the tooling, which already implies code execution as that user. CI runners are ephemeral. | On every pySigma/diskcache upgrade; remove once a fix ships |
+| PYSEC-2026-2447 / CVE-2025-69872 | diskcache 5.6.3 | transitive via pySigma (MITRE data cache) | No fixed version exists. Exploitation requires write access to the local cache directory of the user running the tooling, which already implies code execution as that user. CI runners are ephemeral. | On every pySigma/diskcache upgrade; remove once a fix ships (#10) |
