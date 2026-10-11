@@ -26,14 +26,22 @@ detection:
         CommandLine|contains:
             - 'group'
             - 'localgroup administrators'
-    condition: 1 of selection_*
+    filter_wazuh_agent:
+        ParentImage|endswith: '\wazuh-agent.exe'
+    condition: (1 of selection_*) and not filter_wazuh_agent
 falsepositives:
     - IT helpdesk and sysadmin activity. High-volume in normal
       environments; best used correlated with other suspicious
       activity rather than alerting standalone. Consider raising the
       level or requiring correlation before paging on-call.
+    - Wazuh's own agent (wazuh-agent.exe) periodically invokes net.exe
+      itself as part of its host inventory collection. Confirmed live in
+      this project's own lab on 2026-09-29 via purple-team validation
+      against wazuh-archives-* -- see the matching test fixture below.
+      Filtered by ParentImage rather than dropping the rule's severity,
+      since the underlying detection logic is still sound.
 level: low
 tags:
     - attack.discovery
-    - attack.t1087
+    - attack.t1087.001
     - attack.t1033

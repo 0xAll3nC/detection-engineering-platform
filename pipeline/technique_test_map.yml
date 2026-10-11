@@ -24,6 +24,6 @@ T1059.001:
   test_numbers: [1]
   note: "Base64-encoded PowerShell command execution"
 
-T1087:
+T1087.001:
   test_numbers: [1]
   note: "Local account/group discovery (whoami, net user/group)"
