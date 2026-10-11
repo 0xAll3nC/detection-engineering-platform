@@ -5,7 +5,7 @@
 | Date | 2026-10-11 (UTC) |
 | Rule | `discovery_account_recon.yml` — id `0f9190b7-e73f-44f9-a131-852c6555c2b5` |
 | Rule status | `experimental` |
-| Validation source | `wazuh-archives-*` (raw telemetry; see ADR-0002 once added) |
+| Validation source | `wazuh-archives-*` (raw telemetry; [ADR-0002](../adr/0002-wazuh-archives-as-validation-source.md)) |
 | Lab | Wazuh 4.14.6 single-node (Docker), Windows 10 victim, Sysmon (sysmon-modular), Wazuh agent |
 | Toolchain | pySigma 1.5.1, pysigma-backend-opensearch 2.0.3 |
 | Method | Manual execution on the victim + read-only `_search` queries against the indexer |
