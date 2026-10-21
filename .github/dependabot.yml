@@ -16,3 +16,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci(deps)
+    groups:
+      # CodeQL's init and analyze steps must run the same action version: a
+      # mismatch fails the workflow ("Loaded a configuration file for version X,
+      # but running version Y"). Dependabot treats them as separate
+      # dependencies, so without this group it opens one unmergeable PR per
+      # step (seen in #16 / #18). No update-types filter: majors are grouped too.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
